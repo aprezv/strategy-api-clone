@@ -55,7 +55,6 @@ public class RegisterService {
             userId = AuthUtils.getCurrentUser().getId();
         }
 
-
         Simpatizante simpatizante = Simpatizante
                 .builder()
                 .phoneNumber(request.getPhone())

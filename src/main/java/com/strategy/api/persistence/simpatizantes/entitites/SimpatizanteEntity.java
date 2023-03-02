@@ -97,9 +97,9 @@ public class SimpatizanteEntity {
     private Boolean verificadoEsquina;
 
     @Column(updatable = false)
-    private Long lat;
+    private Double lat;
 
     @Column(updatable = false)
-    private Long lng;
+    private Double lng;
 
 }
