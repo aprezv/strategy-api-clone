@@ -19,4 +19,6 @@ public class RegisterRequest {
     private String whatsApp;
     private Long userId;
     private SimpatizanteEntity registeredById;
+    private Long lat;
+    private Long lng;
 }

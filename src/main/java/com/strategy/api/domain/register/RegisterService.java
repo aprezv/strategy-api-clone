@@ -60,6 +60,8 @@ public class RegisterService {
                 .builder()
                 .phoneNumber(request.getPhone())
                 .whatsApp(request.getWhatsApp())
+                .lat(request.getLat())
+                .lng(request.getLng())
                 .militante(Militante.builder()
                         .cedula(request.getCedula())
                         .build())

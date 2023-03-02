@@ -29,6 +29,8 @@ public class DefaultSimpatizanteRepository implements SimpatizanteRepository {
                 .militante(MilitanteEntity.builder().cedula(simpatizante.getMilitante().getCedula()).build())
                 .phoneNumber(simpatizante.getPhoneNumber())
                 .whatsApp(simpatizante.getWhatsApp())
+                .lat(simpatizante.getLat())
+                .lng(simpatizante.getLng())
                 .registeredBy(Optional.ofNullable(simpatizante.getRegisteredBy()).map(r->SimpatizanteEntity.builder().id(r.getId()).build()).orElse(null))
                 .build();
 
@@ -46,6 +48,8 @@ public class DefaultSimpatizanteRepository implements SimpatizanteRepository {
                         .whatsApp(entity.getWhatsApp())
                         .phoneNumber(entity.getPhoneNumber())
                         .id(entity.getId())
+                        .lat(entity.getLat())
+                        .lng(entity.getLng())
                         .militante(Militante.builder()
                                 .cedula(entity.getMilitante().getCedula())
                                 .apellido1(entity.getMilitante().getApellido1())

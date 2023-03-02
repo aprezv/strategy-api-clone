@@ -19,4 +19,6 @@ public class Simpatizante {
     private Simpatizante registeredBy;
     private String phoneNumber;
     private String whatsApp;
+    private Long lat;
+    private Long lng;
 }
