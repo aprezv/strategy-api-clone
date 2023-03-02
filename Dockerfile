@@ -1,9 +1,9 @@
-FROM openjdk:15-alpine
+FROM openjdk:15-oracle
 
 LABEL authors="Armando Perez <aprezv@gmail.com>"
 
-ADD target/strategy-api-*.jar /app/strategy-api.jar
+ADD artifact/strategy-api.jar /app/api.jar
 
 WORKDIR /app
 
-CMD ["java","-XX:MaxRAMPercentage=80.0", "-jar", "/app/strategy-api.jar"]
+CMD ["java", "-XX:MaxRAMPercentage=80.0", "-jar", "/app/api.jar"]
