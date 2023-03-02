@@ -1,0 +1,516 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Strategy Multi stack
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: Cluster
+        Parameters:
+          - ClusterName
+      -
+        Label:
+          default: Environment
+        Parameters:
+          - ActiveProfile
+      -
+        Label:
+          default: Instance
+        Parameters:
+            - InstanceImageId
+            - InstanceKeyPair
+            - InstanceType
+      -
+        Label:
+          default: Route53 Settings
+        Parameters:
+            - HostedZoneId
+            - DomainName
+            - CertificateArn
+Parameters:
+  ClusterName:
+    Type: String
+    Description: Name of the cluster
+    Default: strategy-prod
+  ActiveProfile:
+    Type: String
+    Description: Active profile properties (dev, qa prod)
+    Default: prod
+  CertificateArn:
+    Type: String
+    Description: Arn of the certificate for https
+    Default: arn:aws:acm:us-east-1:945616522195:certificate/4898710f-52de-4130-b311-95036afbeb3f
+  InstanceImageId:
+    Type: String
+    Description: EC2 Instance Image ID
+    Default: ami-0dde61416371df99a
+  InstanceKeyPair:
+    Type: String
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the cluster instances
+    MinLength: 1
+    MaxLength: 255
+    Default: Strategy
+  InstanceType:
+    Type: String
+    Description: Cluster instance Type
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t2.small
+      - t2.medium
+      - t2.large
+      - t2.xlarge
+      - t2.2xlarge
+  HostedZoneId:
+    Type: String
+    Description: Id of the Hosted Zone
+    Default: Z06046062L8XC9TKO11I4
+  DomainName:
+    Type: String
+    Description: Name of the record set to loadbalancer dns name will be attach
+    Default: multi.abelmp2428.com
+Conditions:
+  createMultiZone: !Equals [!Ref MultiAZDeplyment, true]
+Resources:
+  cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref ClusterName
+  ecsInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join
+        - ''
+        - - !Ref ClusterName
+          - '-ecsInstanceRole'
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+  ecsServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [ecs.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole
+  ecsInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref ecsInstanceRole
+      Path: '/'
+  ecrUser:
+    Type: AWS::IAM::User
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess
+      UserName: !Join
+        - '-'
+        - - !Ref ClusterName
+          - 'ecr-user'
+  ecrUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref ecrUser
+  vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: "172.31.0.0/16"
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+  routeTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        !Ref vpc
+  subnetZoneARoutingTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTable
+      SubnetId: !Ref subnetZoneA
+  subnetZoneBRoutingTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTable
+      SubnetId: !Ref subnetZoneB
+  internetGateway:
+    Type: AWS::EC2::InternetGateway
+  internetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref vpc
+      InternetGatewayId: !Ref internetGateway
+  route:
+    DependsOn:
+      - internetGateway
+      - routeTable
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref routeTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref internetGateway
+  subnetZoneA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: "172.31.3.0/24"
+      AvailabilityZone: "us-east-1a"
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref vpc
+  subnetZoneB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: "172.31.4.0/24"
+      AvailabilityZone: "us-east-1b"
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref vpc
+  route53RecordSet:
+    DependsOn:
+      - loadBalancer
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: !GetAtt loadBalancer.DNSName
+        HostedZoneId: !GetAtt loadBalancer.CanonicalHostedZoneID
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+  ec2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join
+        - ''
+        - - !Ref ClusterName
+          - '-ec2'
+          - '-sg'
+      GroupDescription: "Secucrity group with access only from load balancer"
+      VpcId: !Ref vpc
+      SecurityGroupIngress:
+        -
+          IpProtocol: "-1"
+          SourceSecurityGroupId: !Ref loadBalancerSecurityGroup
+  loadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join
+        - ''
+        - - !Ref ClusterName
+          - '-loadbalancer'
+          - '-sg'
+      GroupDescription: "LoadBalancer security group with access from port 80 and 443 and 7788 for device WS connection"
+      VpcId: !Ref vpc
+      SecurityGroupIngress:
+        -
+          IpProtocol: "tcp"
+          FromPort: 80
+          ToPort: 80
+          CidrIp: "0.0.0.0/0"
+        -
+          IpProtocol: "tcp"
+          FromPort: 443
+          ToPort: 443
+          CidrIp: "0.0.0.0/0"
+  apiTaskDefinition:
+      Type: AWS::ECS::TaskDefinition
+      Properties:
+        Family: !Join
+          - '-'
+          - - !Ref cluster
+            - 'api-td'
+        ContainerDefinitions:
+          - Name: api
+            Cpu: 600
+            Memory: 800
+            MemoryReservation: 800
+            Image: 945616522195.dkr.ecr.us-east-1.amazonaws.com/strategy-api-clone:6
+            PortMappings:
+              - ContainerPort: 80
+                HostPort: 0
+            LogConfiguration:
+              LogDriver: "awslogs"
+              Options:
+                awslogs-group: !Ref apiLogGroup
+                awslogs-region: "us-east-1"
+            Environment:
+              - Name: SERVER_PORT
+                Value: '80'
+              - Name: SPRING_PROFILES_ACTIVE
+                Value: !Ref ActiveProfile
+  apiService:
+      Type: AWS::ECS::Service
+      DependsOn:
+        - autoScalingGroup
+        - loadBalancer
+        - apiTargetGroup
+        - apiListenerRule
+      Properties:
+        Cluster: !Ref cluster
+        TaskDefinition: !Ref apiTaskDefinition
+        DeploymentConfiguration:
+          MaximumPercent : 100
+          MinimumHealthyPercent : 0
+        ServiceName: !Join
+          - '-'
+          - - !Ref cluster
+            - 'api-svc'
+        DesiredCount: 1
+        LoadBalancers:
+          - TargetGroupArn: !Ref apiTargetGroup
+            ContainerPort: 80
+            ContainerName: 'api'
+        Role: !Ref 'ecsServiceRole'
+  apiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join
+        - '-'
+        - - !Ref cluster
+          - 'api'
+      RetentionInDays: 1
+  apiTargetGroup:
+    DependsOn:
+      - loadBalancer
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: 'api-tg'
+      VpcId:
+        !Ref vpc
+      Protocol: "HTTP"
+      Port: 80
+      HealthCheckProtocol: "HTTP"
+      HealthCheckPort: "traffic-port"
+      HealthCheckIntervalSeconds: 35
+      HealthCheckTimeoutSeconds: 30
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
+      HealthCheckPath: "/api/healthcheck"
+      Matcher:
+        HttpCode: "200"
+      TargetType: "instance"
+      TargetGroupAttributes:
+        -
+          Key: "deregistration_delay.timeout_seconds"
+          Value: "0"
+  apiListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref listenerHttps
+      Priority: 1
+      Conditions:
+        -
+          Field: "path-pattern"
+          Values:
+            - "/api/*"
+      Actions:
+        -
+          Type: "forward"
+          TargetGroupArn: !Ref apiTargetGroup
+  uiTaskDefinition:
+      Type: AWS::ECS::TaskDefinition
+      Properties:
+        Family: !Join
+          - '-'
+          - - !Ref cluster
+            - 'web-ui-td'
+        ContainerDefinitions:
+          - Name: web-ui
+            Cpu: 400
+            Memory: 100
+            MemoryReservation: 100
+            Image: 945616522195.dkr.ecr.us-east-1.amazonaws.com/strategy-web-ui-clone:3
+            PortMappings:
+              - ContainerPort: 80
+                HostPort: 0
+  uiService:
+      Type: AWS::ECS::Service
+      DependsOn:
+        - autoScalingGroup
+        - loadBalancer
+        - uiTargetGroup
+        - uiListenerRuleHttps
+        - uiListenerRuleHttp
+      Properties:
+        Cluster: !Ref cluster
+        TaskDefinition: !Ref uiTaskDefinition
+        DeploymentConfiguration:
+          MaximumPercent : 100
+          MinimumHealthyPercent : 0
+        ServiceName: !Join
+          - '-'
+          - - !Ref cluster
+            - 'web-ui-service'
+        DesiredCount: 1
+        LoadBalancers:
+          - TargetGroupArn: !Ref uiTargetGroup
+            ContainerPort: 80
+            ContainerName: web-ui
+        Role: !Ref 'ecsServiceRole'
+  uiTargetGroup:
+    DependsOn:
+      - loadBalancer
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: "web-ui-tg"
+      VpcId: !Ref vpc
+      Protocol: "HTTP"
+      Port: 80
+      HealthCheckProtocol: "HTTP"
+      HealthCheckPort: "traffic-port"
+      HealthCheckIntervalSeconds: 35
+      HealthCheckTimeoutSeconds: 30
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
+      HealthCheckPath: "/"
+      Matcher:
+        HttpCode: "200"
+      TargetType: "instance"
+      TargetGroupAttributes:
+        -
+          Key: "deregistration_delay.timeout_seconds"
+          Value: "0"
+  uiListenerRuleHttps:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref listenerHttps
+      Priority: 3
+      Conditions:
+        -
+          Field: "path-pattern"
+          Values:
+            - "/"
+      Actions:
+        -
+          Type: "forward"
+          TargetGroupArn: !Ref uiTargetGroup
+  uiListenerRuleHttp:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref listenerHttp
+      Priority: 2
+      Conditions:
+        -
+          Field: "path-pattern"
+          Values:
+            - "/"
+      Actions:
+        -
+          Type: "forward"
+          TargetGroupArn: !Ref uiTargetGroup
+  loadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    DependsOn:
+      - subnetZoneA
+      - subnetZoneB
+      - loadBalancerSecurityGroup
+    Properties:
+      Name: !Join
+        - '-'
+        - - !Ref cluster
+          - 'lb'
+      Scheme: "internet-facing"
+      IpAddressType: "ipv4"
+      Type: "application"
+      SecurityGroups:
+        - !Ref loadBalancerSecurityGroup
+      Subnets:
+        - !Ref subnetZoneA
+        - !Ref subnetZoneB
+  listenerHttps:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: "forward"
+          TargetGroupArn: !Ref uiTargetGroup
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+      LoadBalancerArn: !Ref loadBalancer
+      Port: 443
+      Protocol: "HTTPS"
+  listenerHttp:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        -
+          Type: "forward"
+          TargetGroupArn: !Ref uiTargetGroup
+      LoadBalancerArn: !Ref loadBalancer
+      Port: 80
+      Protocol: "HTTP"
+  listenerHttpDevicePort:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        -
+          Type: "forward"
+          TargetGroupArn: !Ref apiTargetGroup
+      LoadBalancerArn: !Ref loadBalancer
+      Port: 7788
+      Protocol: "HTTP"
+  launchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: !Ref InstanceImageId
+      SecurityGroups:
+        - !Ref ec2SecurityGroup
+      KeyName: !Ref InstanceKeyPair
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash -xe
+            echo ECS_CLUSTER=${cluster} >> /etc/ecs/ecs.config
+            sudo yum install -y python34
+            curl -O https://bootstrap.pypa.io/get-pip.py
+            python3 get-pip.py --user
+            export PATH=~/.local/bin:$PATH
+            source ~/.bash_profile
+            pip install --upgrade --user awscli
+            aws configure set default.region us-east-1
+            aws configure set aws_access_key_id ${ecrUserAccessKey}
+            aws configure set aws_secret_access_key ${ecrUserAccessKey.SecretAccessKey}
+            eval $(aws ecr get-login --no-include-email | sed 's|https://||')
+      InstanceType: !Ref InstanceType
+      InstanceMonitoring: true
+      IamInstanceProfile: !Ref ecsInstanceProfile
+      EbsOptimized: false
+  autoScalingGroup:
+    DependsOn:
+      - subnetZoneA
+      - subnetZoneB
+      - launchConfiguration
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - !Ref subnetZoneA
+        - !Ref subnetZoneB
+      Cooldown: "60"
+      DesiredCapacity: "1"
+      HealthCheckGracePeriod: 0
+      HealthCheckType: EC2
+      LaunchConfigurationName: !Ref launchConfiguration
+      MaxSize: "1"
+      MinSize: "0"
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Ref ClusterName
+              - 'cluster'
+              - 'instance'
+          PropagateAtLaunch: true
+Outputs:
+  Cluster:
+    Value: !Ref cluster
+  LoadBalancer:
+    Value: !GetAtt loadBalancer.DNSName
