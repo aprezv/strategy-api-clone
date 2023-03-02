@@ -2,6 +2,9 @@ spring:
   datasource:
     platform: postgres
     driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://strategy-database.cgvtl9col9kx.us-east-1.rds.amazonaws.com:5432/strategy-clone
+    username: master_user
+    password: 3k1ypt1K
   jpa:
     hibernate:
       ddl-auto: update
@@ -26,11 +29,6 @@ jwt:
 token-encryption:
   secret: jm1VmFuwNYtwZFCsCpiKpHIzgZPRrmz7
   salt: CJQyX08Q6W
-spring:
-  datasource:
-    url: jdbc:postgresql://strategy-database.cgvtl9col9kx.us-east-1.rds.amazonaws.com:5432/strategy-clone
-    username: master_user
-    password: 3k1ypt1K
 
 server:
   servlet:
