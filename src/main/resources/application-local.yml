@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://strategy-database.cgvtl9col9kx.us-east-1.rds.amazonaws.com:5432/strategy
+    username: master_user
+    password: 3k1ypt1K
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+integration:
+  baseUrl: http://wsint.abelpresidente.org
+  username: 86b1e9f3d62f48f490e8f1478c6e769a
+  password: 56040998b9d54eab823a2dced176fd16
+
+cloud:
+  aws:
+    stack:
+      auto: false
+    region:
+      static: us-east-1
+    credentials:
+      accessKey: AKIA5YKZDBPJS74ZOFPU
+      secretKey: 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
+    s3:
+      default-bucket: padroncillo

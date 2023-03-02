@@ -1,0 +1,52 @@
+spring:
+  datasource:
+    platform: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      javax:
+        persistence:
+          validation:
+            mode: none
+      hibernate:
+        current_session_context_class: org.springframework.orm.hibernate5.SpringSessionContext
+        jdbc:
+          lob:
+            non_contextual_creation: true
+          time_zone: UTC
+  servlet:
+    multipart:
+      max-file-size: 2MB
+
+jwt:
+  secret: Ws_rh+h*p)4=SzFC
+token-encryption:
+  secret: jm1VmFuwNYtwZFCsCpiKpHIzgZPRrmz7
+  salt: CJQyX08Q6W
+
+server:
+  servlet:
+    context-path: /api
+
+application:
+  oauthPassword: Ws_rh+h*p)4=SzFC
+  oauthPassword2: ~kF3gs.BP2-Cwfw28_yS-xmB6C~4wU-Cmf
+integration:
+  baseUrl: http://wsint.abelpresidente.org
+  username: 86b1e9f3d62f48f490e8f1478c6e769a
+  password: 56040998b9d54eab823a2dced176fd16
+
+cloud:
+  aws:
+    stack:
+      auto: false
+    region:
+      static: us-east-1
+    credentials:
+      accessKey: AKIA5YKZDBPJS74ZOFPU
+      secretKey: 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
+    s3:
+      default-bucket: padroncillo
