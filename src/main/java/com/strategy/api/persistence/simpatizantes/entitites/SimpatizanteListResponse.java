@@ -17,4 +17,6 @@ public interface SimpatizanteListResponse {
     String getUser_role();
     Long getRegistered_count();
     Boolean  getVoto_centro();
+    Double getLat();
+    Double getLng();
 }

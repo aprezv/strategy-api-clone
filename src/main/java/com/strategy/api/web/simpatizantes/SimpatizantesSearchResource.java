@@ -31,7 +31,6 @@ public class SimpatizantesSearchResource  {
         this.registerService = registerService;
     }
 
-
     @RequestMapping(method = RequestMethod.GET)
     public Page search(@RequestParam(name = "cedula", required = false, defaultValue = "") final String cedula,
                        @RequestParam(name = "nombre", required = false, defaultValue = "") final String nombre,

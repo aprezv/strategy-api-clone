@@ -96,11 +96,13 @@ public interface SimpatizanteJpaRepository extends ExtendedRepository<Simpatizan
     SimpatizanteExternalResponse getForExternalPlatform(@Param("cedula") String cedula);
 
 
-    @Query(nativeQuery = true, value = "WITH RECURSIVE simpatizantes_r ( ID, militante_cedula, phone_number, whats_app, registered_by_id, PATH ) AS (\n" +
+    @Query(nativeQuery = true, value = "WITH RECURSIVE simpatizantes_r ( ID, militante_cedula, phone_number, whats_app,lat,lng, registered_by_id, PATH ) AS (\n" +
             "  SELECT ID,\n" +
             "         militante_cedula,\n" +
             "         phone_number,\n" +
-            "         whats_app,\n" +
+            "         whats_app," +
+            "         lat, " +
+            "         lng, " +
             "         registered_by_id,\n" +
             "         ARRAY [ ID ] AS PATH\n" +
             "  FROM\n" +
@@ -118,6 +120,8 @@ public interface SimpatizanteJpaRepository extends ExtendedRepository<Simpatizan
             "    s.militante_cedula,\n" +
             "    s.phone_number,\n" +
             "    s.whats_app,\n" +
+            "    s.lat,\n" +
+            "    s.lng,\n" +
             "    s.registered_by_id,\n" +
             "    r.PATH || s.ID AS PATH\n" +
             "  FROM\n" +
@@ -130,6 +134,8 @@ public interface SimpatizanteJpaRepository extends ExtendedRepository<Simpatizan
             " a.militante_cedula as simpatizante_cedula, \n" +
             " a.phone_number, \n" +
             " a.whats_app,\n" +
+            " a.lat," +
+            " a.lng," +
             " u.role as user_role,\n" +
             " u.id as user_id,\n" +
             " u.registered_count,\n" +
