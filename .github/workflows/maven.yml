@@ -30,7 +30,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: artifact
-          path: target/strategy-api-clone.jar
+          path: target/strategy-api.jar
           retention-days: 1
   docker-build:
     name: "Docker Build"
